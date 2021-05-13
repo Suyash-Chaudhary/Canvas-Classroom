@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/webcamjs/1.0.25/webcam.js"></script>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='common.css') }}" />
+    <title>Document</title>
+</head>
+<body>
+    <div class="content">
+        <div class="navbar">
+            <div class="logo">Classroom</div>
+            <div class="info">
+                <div class="info-block">
+                    <span class="sm">Joined as:</span>
+                    <span class="md">{{ name }}</span>
+                </div>
+                <div class="info-block">
+                    <span class="sm">Room ID:</span>
+                    <span class="md">{{ roomId }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="canvas-wrapper">
+            <img id="canvas">
+        </div>
+        <div class="text-box">
+            <div class="texts">
+                <table id="texts">
+                    <thead>
+                        <tr>
+                            <th>Messages</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="message">
+                <input id="msg" type="text" placeholder="message">
+                <button onclick="handleClick()">&gt;</button>
+            </div>
+        </div>
+        <div class="participants">
+            <table id="participants">
+                <thead>
+                    <tr>
+                        <th>Participants</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+        <div id="camera"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <script> 
+        const handleClick = () => {
+            const msg = document.getElementById('msg').value;
+            document.getElementById('msg').value = "";
+
+            socket.emit('message', {name, msg, roomId});
+        };
+        const name = '{{ name }}';
+        const roomId = '{{ roomId }}';
+        const socket = io.connect('http://127.0.0.1:5000/');
+        socket.emit('join-room', {name, roomId});
+        socket.on('new-frame', (data) => {
+            const canvas = document.getElementById('canvas');
+            canvas.src = `data:image/jpeg;base64,${data}`;
+        });
+        socket.on('msg', (data) => {
+            const texts = document.getElementById("texts");
+            var elem = texts.insertRow(-1);
+            var newCell = elem.insertCell(0);
+            var newText = document.createElement("p");
+            newText.innerHTML = `<b>${data['name']}</b><br>${data['msg']}`;
+            newCell.appendChild(newText);
+        });
+        socket.on('joined', (data) => {
+            const participants = document.getElementById("participants");
+            var elem = participants.insertRow(-1);
+            var newCell = elem.insertCell(0);
+            var newText = document.createTextNode(`${data['name']}`);
+            newCell.appendChild(newText);
+            
+            const texts = document.getElementById("texts");
+            elem = texts.insertRow(-1);
+            newCell = elem.insertCell(0);
+            newText = document.createElement('i');
+            newText.innerText = `${data['name']} has joined the room`;
+            newCell.appendChild(newText);
+        });
+        const FPS = 20;
+
+        // CAMERA SETTINGS.
+        Webcam.set({
+            width: 900,
+            height: 720,
+            image_format: 'jpeg',
+            jpeg_quality: 100
+        });
+        Webcam.attach('#camera');
+
+        // SHOW THE SNAPSHOT.
+        const sendSnapShot = () => {
+            Webcam.snap((data_uri) => {
+                socket.emit('capture', {data_uri, roomId});
+            });
+            setTimeout(sendSnapShot, 1000/FPS);
+        }
+        setTimeout(sendSnapShot, 2000);
+    </script>
+</body>
+</html>
